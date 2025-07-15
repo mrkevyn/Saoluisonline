@@ -68,7 +68,7 @@ public class BannerController {
     }
 
     // 🔸 Listar todas as imagens
-    @GetMapping
+    @GetMapping("/listar")
     public ResponseEntity<?> listar() {
         List<Banner> imagens = imagemRepository.findAll();
 
@@ -103,13 +103,42 @@ public class BannerController {
 
     // 🔸 Atualizar uma imagem
     @PutMapping("/atualizar/{id}")
-    public ResponseEntity<?> atualizar(@PathVariable Long id, @RequestBody Banner imagemAtualizada) {
+    public ResponseEntity<?> atualizarImagem(
+            @PathVariable Long id,
+            @RequestParam(value = "file", required = false) MultipartFile file,
+            @RequestParam("nome") String nome,
+            @RequestParam("link") String link,
+            @RequestParam(value = "isVisible", required = false, defaultValue = "true") boolean isVisible) {
+
         return imagemRepository.findById(id).map(imagem -> {
-            imagem.setNome(imagemAtualizada.getNome());
-            imagem.setLink(imagemAtualizada.getLink());
-            imagem.setTo(imagemAtualizada.getTo());
-            imagemRepository.save(imagem);
-            return ResponseEntity.ok(new ApiResponse(200, "Imagem atualizada com sucesso.", imagem));
+            try {
+                // Atualiza imagem se novo arquivo foi enviado
+                if (file != null && !file.isEmpty()) {
+                    File diretorio = new File(uploadDir);
+                    if (!diretorio.exists()) {
+                        diretorio.mkdirs();
+                    }
+
+                    String nomeArquivo = System.currentTimeMillis() + "_" + file.getOriginalFilename();
+                    Path caminho = Paths.get(uploadDir + File.separator + nomeArquivo);
+                    Files.copy(file.getInputStream(), caminho, StandardCopyOption.REPLACE_EXISTING);
+
+                    imagem.setTo("/imagens/" + nomeArquivo);
+                }
+
+                imagem.setNome(nome);
+                imagem.setLink(link);
+                imagem.setIsVisible(isVisible);
+
+                imagemRepository.save(imagem);
+
+                return ResponseEntity.ok(new ApiResponse(200, "Imagem atualizada com sucesso.", imagem));
+
+            } catch (Exception e) {
+                return ResponseEntity.status(500).body(
+                        new ApiResponse(500, "Erro ao atualizar a imagem: " + e.getMessage(), null)
+                );
+            }
         }).orElse(ResponseEntity.status(404)
                 .body(new ApiResponse(404, "Imagem não encontrada com ID: " + id, null)));
     }
