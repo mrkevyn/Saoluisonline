@@ -68,7 +68,7 @@ public class ProjetosController {
     }
 
     // Listar todos
-    @GetMapping
+    @GetMapping("/listar")
     public ResponseEntity<?> listar() {
         List<Projetos> projetos = projetoRepository.findAll();
         if (projetos.isEmpty()) {
@@ -99,23 +99,44 @@ public class ProjetosController {
         return ResponseEntity.ok(new ApiResponse(200, "Projetos visíveis encontrados.", projetos));
     }
 
-    // Criar novo
-    @PostMapping
-    public ResponseEntity<?> criar(@RequestBody Projetos projeto) {
-        Projetos novoProjeto = projetoRepository.save(projeto);
-        return ResponseEntity.status(201)
-                .body(new ApiResponse(201, "Projeto criado com sucesso.", novoProjeto));
-    }
-
     // Atualizar
     @PutMapping("/atualizar/{id}")
-    public ResponseEntity<?> atualizar(@PathVariable Long id, @RequestBody Projetos projetoAtualizado) {
+    public ResponseEntity<?> atualizarProjeto(
+            @PathVariable Long id,
+            @RequestParam(value = "file", required = false) MultipartFile file,
+            @RequestParam("nome") String nome,
+            @RequestParam("link") String link,
+            @RequestParam(value = "isVisible", required = false, defaultValue = "true") boolean isVisible) {
+
         return projetoRepository.findById(id).map(projeto -> {
-            projeto.setNome(projetoAtualizado.getNome());
-            projeto.setLink(projetoAtualizado.getLink());
-            projeto.setTo(projetoAtualizado.getTo());
-            projetoRepository.save(projeto);
-            return ResponseEntity.ok(new ApiResponse(200, "Projeto atualizado com sucesso.", projeto));
+            try {
+                // Se novo arquivo foi enviado, substitui o caminho do 'to'
+                if (file != null && !file.isEmpty()) {
+                    File diretorio = new File(uploadDirProjetos);
+                    if (!diretorio.exists()) {
+                        diretorio.mkdirs();
+                    }
+
+                    String nomeArquivo = System.currentTimeMillis() + "_" + file.getOriginalFilename();
+                    Path caminho = Paths.get(uploadDirProjetos + File.separator + nomeArquivo);
+                    Files.copy(file.getInputStream(), caminho, StandardCopyOption.REPLACE_EXISTING);
+
+                    projeto.setTo("/projetos/" + nomeArquivo);
+                }
+
+                projeto.setNome(nome);
+                projeto.setLink(link);
+                projeto.setIsVisible(isVisible);
+
+                projetoRepository.save(projeto);
+
+                return ResponseEntity.ok(new ApiResponse(200, "Projeto atualizado com sucesso.", projeto));
+
+            } catch (Exception e) {
+                return ResponseEntity.status(500).body(
+                        new ApiResponse(500, "Erro ao atualizar o projeto: " + e.getMessage(), null)
+                );
+            }
         }).orElse(ResponseEntity.status(404)
                 .body(new ApiResponse(404, "Projeto não encontrado com ID: " + id, null)));
     }
