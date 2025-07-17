@@ -2,6 +2,7 @@ package semit.saoluis.controllers;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
 import semit.saoluis.model.Portal;
 import semit.saoluis.repository.PortalRepository;
 import semit.saoluis.responses.ApiResponse;
@@ -21,17 +22,24 @@ public class PortalController {
     }
 
     // 🔸 Criar
-    @PostMapping
+    @PostMapping("/criar")
     public ResponseEntity<?> criar(@RequestBody Portal portal) {
         Portal novo = portalRepository.save(portal);
         return ResponseEntity.status(201).body(new ApiResponse(201, "Portal criado com sucesso.", novo));
     }
 
     // 🔸 Listar todos
-    @GetMapping
+    @GetMapping("/listar")
     public ResponseEntity<?> listar() {
         List<Portal> lista = portalRepository.findAll();
         return ResponseEntity.ok(new ApiResponse(200, "Portais encontrados.", lista));
+    }
+    
+ // 🔸 Listar apenas os ativos
+    @GetMapping("/ativos")
+    public ResponseEntity<?> listarAtivos() {
+        List<Portal> lista = portalRepository.findByAtivoTrue();
+        return ResponseEntity.ok(new ApiResponse(200, "Portais ativos encontrados.", lista));
     }
 
     // 🔸 Listar apenas os visíveis
@@ -72,12 +80,14 @@ public class PortalController {
         }).orElse(ResponseEntity.status(404).body(new ApiResponse(404, "Portal não encontrado.", null)));
     }
 
-    // 🔸 Deletar
-    @DeleteMapping("/deletar/{id}")
-    public ResponseEntity<?> deletar(@PathVariable Long id) {
+    // 🔸 Desativar
+    @PutMapping("/ativo/{id}")
+    public ResponseEntity<?> alterarStatusAtivo(@PathVariable Long id, @RequestParam("ativo") boolean ativo) {
         return portalRepository.findById(id).map(portal -> {
-            portalRepository.delete(portal);
-            return ResponseEntity.ok(new ApiResponse(200, "Portal deletado com sucesso.", null));
+            portal.setAtivo(ativo);
+            portalRepository.save(portal);
+            String msg = ativo ? "Portal ativado com sucesso." : "Portal desativado com sucesso.";
+            return ResponseEntity.ok(new ApiResponse(200, msg, portal));
         }).orElse(ResponseEntity.status(404).body(new ApiResponse(404, "Portal não encontrado.", null)));
     }
 }
